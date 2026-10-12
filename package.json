@@ -1,0 +1,56 @@
+{
+  "name": "mcpclientcanary",
+  "version": "0.1.0",
+  "description": "Reproduce native MCP client state regressions with evidence you can inspect.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.16.0 <27"
+  },
+  "bin": {
+    "mcpclientcanary": "dist/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "fixtures",
+    "examples",
+    "schemas",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:server": "node --test tests/server/*.test.mjs",
+    "lint": "tsc --noEmit --noUnusedLocals --noUnusedParameters && node scripts/lint.mjs && prettier --check src scripts tests examples/acquire-clients.mjs",
+    "test:native": "node scripts/native.mjs",
+    "test:package": "node scripts/package.mjs",
+    "test:ui": "node scripts/ui.mjs",
+    "format": "prettier --write src scripts tests examples/acquire-clients.mjs",
+    "test:native-safety": "node scripts/native-safety.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "commander": "15.0.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "playwright": "1.62.1",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  },
+  "author": "mikonyaa",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikonyaa/mcpclientcanary.git"
+  },
+  "keywords": [
+    "mcp",
+    "claude-code",
+    "testing",
+    "regression-testing"
+  ]
+}

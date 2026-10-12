@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "added-tool",
+  "toolName": "lookup_record",
+  "protocol": "2025-11-25",
+  "initial": [
+    {
+      "name": "lookup_record",
+      "description": "Look up an exclusively synthetic record. CANARY_SCHEMA_A",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recordId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "changed": [
+    {
+      "name": "lookup_record",
+      "description": "Look up an exclusively synthetic record. CANARY_SCHEMA_A",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recordId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "lookup_summary",
+      "description": "Synthetic added tool. CANARY_ADDED_B",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recordId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "hashes": {
+    "initial": [
+      {
+        "descriptionHash": "1f99765875a83f094cb2d0a5a97782ea1389b2b828cd627a26f17d45bb5ece05",
+        "schemaHash": "1a541e4b9db7921ccccc573351ffeae26448e6c3875a62ac8c633549e07813ed",
+        "definitionHash": "3f0f07d52b714ab370d60e1c4bfb43c607bc7858179b3282b6593aa310f070b9"
+      }
+    ],
+    "changed": [
+      {
+        "descriptionHash": "1f99765875a83f094cb2d0a5a97782ea1389b2b828cd627a26f17d45bb5ece05",
+        "schemaHash": "1a541e4b9db7921ccccc573351ffeae26448e6c3875a62ac8c633549e07813ed",
+        "definitionHash": "3f0f07d52b714ab370d60e1c4bfb43c607bc7858179b3282b6593aa310f070b9"
+      },
+      {
+        "descriptionHash": "eb0a50a19ccbd0c2e60acfd99f89ab771d0472dfb5df95933ed8a1c6e9f29f67",
+        "schemaHash": "1a541e4b9db7921ccccc573351ffeae26448e6c3875a62ac8c633549e07813ed",
+        "definitionHash": "96f600afca6dae7a0c1cc62f793f80c9e831df57a359bdbeae48897d4e9945e6"
+      }
+    ]
+  },
+  "requiredStages": [
+    "initial-deferred",
+    "notification-trigger",
+    "notification-wire",
+    "notification-current",
+    "resume-continuity",
+    "resume-current"
+  ],
+  "observationWindowMs": 1000
+}

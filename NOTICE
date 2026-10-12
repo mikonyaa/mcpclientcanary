@@ -1,0 +1,6 @@
+MCPClientCanary's code, fixtures and reports are original and MIT licensed.
+Runtime dependencies are distributed separately by npm under their own licenses:
+@modelcontextprotocol/sdk 1.32.1 (MIT), commander 15.0.0 (MIT), zod 4.6.7 (MIT).
+No Claude Code executable, proprietary system prompt or third-party probe code
+is included in this package. Claude Code is a separate Anthropic product.
+Research links are attribution to mechanisms, not copied implementations.

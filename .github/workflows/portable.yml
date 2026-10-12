@@ -1,0 +1,63 @@
+name: Portable checks and static report
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portable:
+    name: Portable checks (no native certification)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run test:server
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - run: npm run test:package
+      - run: sha256sum mcpclientcanary-0.1.0.tgz > SHA256SUMS-package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: package-${{ github.sha }}
+          path: |
+            mcpclientcanary-0.1.0.tgz
+            SHA256SUMS-package
+            test-results/ui/acceptance.json
+          if-no-files-found: error
+          retention-days: 14
+  pages:
+    name: Recorded static report
+    needs: portable
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: site
+      - name: Deploy recorded synthetic report
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

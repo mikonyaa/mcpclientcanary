@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "id": "fresh-b",
+  "toolName": "lookup_record",
+  "protocol": "2025-11-25",
+  "initial": [
+    {
+      "name": "lookup_record",
+      "description": "Look up an exclusively synthetic record. CANARY_SCHEMA_B",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "recordId",
+          "detail"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "changed": [
+    {
+      "name": "lookup_record",
+      "description": "Look up an exclusively synthetic record. CANARY_SCHEMA_B",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "recordId",
+          "detail"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "hashes": {
+    "initial": [
+      {
+        "descriptionHash": "b3fffed546b8134538b73c72bdddfdaf6a6a8a6fe26b52ca949bc332b1735d6f",
+        "schemaHash": "ed01a8ccb147763bb9e65fe669f87b9950a13c4b60929df15724d8bbefa10a93",
+        "definitionHash": "21608e1b90fa2017b0729e60ea7f0550b3d77a1ddb97e09c9dea3df30c947427"
+      }
+    ],
+    "changed": [
+      {
+        "descriptionHash": "b3fffed546b8134538b73c72bdddfdaf6a6a8a6fe26b52ca949bc332b1735d6f",
+        "schemaHash": "ed01a8ccb147763bb9e65fe669f87b9950a13c4b60929df15724d8bbefa10a93",
+        "definitionHash": "21608e1b90fa2017b0729e60ea7f0550b3d77a1ddb97e09c9dea3df30c947427"
+      }
+    ]
+  },
+  "requiredStages": [
+    "initial-deferred",
+    "notification-trigger",
+    "notification-wire",
+    "notification-current",
+    "resume-continuity",
+    "resume-current"
+  ],
+  "observationWindowMs": 1000
+}

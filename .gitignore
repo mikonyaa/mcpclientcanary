@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tgz
+*.local.json
+doctor-results/
+results/
+test-results/
+.canary-doctor/
+spike*.mjs
+.DS_Store

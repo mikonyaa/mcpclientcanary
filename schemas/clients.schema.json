@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "clients": {
+      "minItems": 1,
+      "maxItems": 2,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "executable": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "expectedVersion": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          },
+          "expectedSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "os": {
+            "type": "string",
+            "const": "darwin"
+          },
+          "arch": {
+            "type": "string",
+            "const": "arm64"
+          }
+        },
+        "required": [
+          "label",
+          "executable",
+          "expectedVersion",
+          "expectedSha256",
+          "os",
+          "arch"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "clients"
+  ],
+  "additionalProperties": false
+}

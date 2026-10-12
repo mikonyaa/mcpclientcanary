@@ -1,0 +1,10 @@
+# Baseline checked 2026-10-13
+
+| Existing baseline | Its actual mechanism | This tool's additional measurement | Evidence / license checked |
+| --- | --- | --- | --- |
+| [Official MCP conformance](https://github.com/modelcontextprotocol/conformance) | Client and server protocol scenarios; invokes client commands against test servers | Native headless ToolSearch, same-name live generation change, persisted resume and outbound model-input resolution across two executable pins | README command runner and requirements-by-revision; LICENSE has ongoing MIT → Apache-2.0 transition. No copied source |
+| [testmcpy](https://github.com/preset-io/testmcpy) | Tool evaluations, provider comparisons, reports and native MCP integrations through agent SDK providers | Deterministic no-inference CLI state lifecycle with explicit server/loaded/current/history separation | README provider table includes claude-sdk / claude-cli, conformance and JUnit; Apache-2.0. No copied source |
+| [mcp-client-compat-probe](https://github.com/kascada/mcp-client-compat-probe) | Diagnostic server and repeatable prompts for observing real client behavior | Automated pinned native adapter, bounded recorder/resolver, true session continuity and two-version contracts | README read; GitHub license metadata absent. No code or fixtures copied |
+| [canimcp](https://github.com/blues/canimcp) | Version/date/provenance-aware feature matrix and support reports | Produces reproducible case evidence; does not maintain another global compatibility registry | README and LICENSE read: code MIT, data CC-BY-4.0. No imported data |
+
+The official conformance runner is useful for protocol behavior, but its documented command/server-URL bridge does not by itself capture the native model endpoint or prove replayed conversation continuity. This implementation uses its narrower independent SDK server check and owns a small CLI-specific lifecycle adapter. Conformance integration remains P2. These are different observation boundaries, not a claim that existing tools lack native testing.
