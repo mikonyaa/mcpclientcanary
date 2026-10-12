@@ -79,7 +79,7 @@ function clientApp() {
             const s = find(l.id);
             const marker =
               String(c.definitions.notification?.current?.description ?? '').match(
-                /CANARY_SCHEMA_[AB]/,
+                /CANARY_(?:SCHEMA_[AB]|ADDED_B)/,
               )?.[0] ?? 'unresolved';
             const loadedNote =
               l.id === 'notification-search'

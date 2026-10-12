@@ -77,6 +77,14 @@ try {
         const options = await page.locator('#scenario option').count();
         assert.equal(options, 6);
         checks++;
+        if (kind === 'actual') {
+          await page.locator('#scenario').selectOption('added-tool');
+          assert.equal(
+            await page.getByText('Native reference → CANARY_ADDED_B', { exact: true }).count(),
+            2,
+          );
+          checks++;
+        }
         await page.locator('#scenario').selectOption('description-only');
         await page.locator('#repeat').selectOption('2');
         assert((await page.locator('.client-panel').count()) >= 1);

@@ -58,7 +58,7 @@
             return `<article class="client-panel"><div class="client-heading"><div><span class="eyebrow">CLAUDE CODE · ${esc(report.environment.os)} / ${esc(report.environment.arch)}</span><h2>${esc(c.nativeVersion)}</h2></div>${status(c.clientContractStatus)}</div><p class="case-note">${esc(label)} · harness ${esc(c.harnessStatus)} · exit ${c.exitCode}</p><ol class="timeline"><li><b>01</b><span>Initial load</span>${status(find('initial-current')?.status ?? 'not-reached')}</li><li><b>02</b><span>Live notification</span>${status(find('notification-current')?.status ?? 'not-reached')}</li><li><b>03</b><span>Native resume</span>${status(find('resume-current')?.status ?? 'not-reached')}</li></ol><div class="layers">${layers
                 .map((l) => {
                 const s = find(l.id);
-                const marker = String(c.definitions.notification?.current?.description ?? '').match(/CANARY_SCHEMA_[AB]/)?.[0] ?? 'unresolved';
+                const marker = String(c.definitions.notification?.current?.description ?? '').match(/CANARY_(?:SCHEMA_[AB]|ADDED_B)/)?.[0] ?? 'unresolved';
                 const loadedNote = l.id === 'notification-search'
                     ? `<p><b>Native reference → ${esc(marker)}</b><br>The result carries a reference, not an inline schema. Freshness is evaluated against current model input below.</p>`
                     : '';
