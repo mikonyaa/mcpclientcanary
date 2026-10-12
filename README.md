@@ -8,7 +8,7 @@ MCPClientCanary launches two pinned, unmodified native executables against its o
 
 ![Two-version native evidence report](site/report-1440.png)
 
-[Recorded synthetic report](site/index.html) · [Actual terminal recording](site/demo.cast) · [Portable CI definition](.github/workflows/portable.yml) · [Detailed measurement semantics](docs/measurement.md)
+[Recorded synthetic report](site/index.html) · [Play terminal recording](site/demo.html) · [Recording data](site/demo.cast) · [Portable CI definition](.github/workflows/portable.yml) · [Detailed measurement semantics](docs/measurement.md)
 
 ## What was measured
 

@@ -194,7 +194,7 @@ program
       try {
         const check = await verifyClient(c, owned, !!options.allowUnverified);
         manifest.push({ label: c.label, ...check.local, ...check.public });
-        if (!check.public.verified) code = 3;
+        if (!check.public.verified) code = aggregateExit([code, 3]);
         await writeFile(
           resolve(owned.root, 'doctor.manifest.local.json'),
           JSON.stringify(
@@ -205,7 +205,7 @@ program
           { mode: 0o600 },
         );
       } catch (e) {
-        code = e instanceof CanaryError ? e.code : 2;
+        code = aggregateExit([code, e instanceof CanaryError ? e.code : 2]);
         manifest.push({
           label: c.label,
           error: e instanceof CanaryError ? e.message : 'Doctor validation/I/O error',

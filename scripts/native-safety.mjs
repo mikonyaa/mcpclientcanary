@@ -8,6 +8,10 @@ import { createOwned, cleanupOwned } from '../dist/native/isolation.js';
 import { verifyClient } from '../dist/adapters/claude-code/index.js';
 import { NativeDriver } from '../dist/native/driver.js';
 import { runCase } from '../dist/scenarios/state-machine.js';
+import { Loopback } from '../dist/model/loopback.js';
+import { writeControl } from '../dist/server/phase-control.js';
+import { readEvents } from '../dist/evidence/collector.js';
+import { verdict, stage } from '../dist/verdict/contracts.js';
 const argv = process.argv.slice(2),
   path = argv[argv.indexOf('--clients') + 1];
 if (!argv.includes('--clients'))
@@ -25,6 +29,66 @@ try {
   const refs = parallel.map((c) => new Set(c.evidence.map((e) => e.ref)));
   assert([...refs[0]].every((r) => !refs[1].has(r)));
   results.push('two concurrent native cases are independent');
+  {
+    const owned = await createOwned(parent),
+      check = await verifyClient(clients[0], owned),
+      model = new Loopback(owned.nonce);
+    await writeControl(owned.root, owned.control, {
+      schemaVersion: 1,
+      runId: owned.runId,
+      scenario: 'same-name',
+      phase: 'A',
+      generation: 1,
+    });
+    const mcp = resolve(owned.root, 'mcp.json');
+    await writeFile(
+      mcp,
+      JSON.stringify({
+        mcpServers: {
+          canary: {
+            command: process.execPath,
+            args: [
+              resolve('dist/server/fixture-server.js'),
+              owned.root,
+              owned.control,
+              owned.serverEvidence,
+            ],
+          },
+        },
+      }),
+    );
+    await model.start();
+    const driver = new NativeDriver(check.executable, owned, model, 5000);
+    try {
+      driver.start(mcp);
+      await driver.turn('Own initial native safety canary ' + owned.nonce);
+      const events = readEvents(owned.serverEvidence),
+        fixture = events.find((e) => e.event === 'server-start');
+      assert(fixture);
+      process.kill(fixture.pid, 'SIGKILL');
+      await new Promise((r) => setTimeout(r, 100));
+      await driver.close(false);
+      assert.throws(() => process.kill(fixture.pid, 0));
+      assert.equal(sentinel.exitCode, null);
+      assert.equal(
+        verdict(
+          [
+            stage('initial', 'observed-pass', 'loaded'),
+            stage('notification-trigger', 'not-reached', 'owned server crashed before mutation'),
+          ],
+          [],
+        ).exitCode,
+        3,
+      );
+      results.push(
+        'actual fixture crash closes owned resources and cannot prove a lifecycle contract',
+      );
+    } finally {
+      await driver.close(false);
+      await model.close();
+      await cleanupOwned(owned);
+    }
+  }
   for (const kind of ['timeout', 'interrupt', 'truncated-sse']) {
     const owned = await createOwned(parent);
     const check = await verifyClient(clients[0], owned);

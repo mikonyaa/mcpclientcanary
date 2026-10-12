@@ -23,6 +23,7 @@ import {
   messagesResponse,
 } from '../../dist/model/protocol.js';
 import { htmlReport, escapeHtml } from '../../dist/report/html.js';
+import { Loopback } from '../../dist/model/loopback.js';
 import { junitReport } from '../../dist/report/index.js';
 import { clientsSchema, controlSchema, CanaryError } from '../../dist/types.js';
 const A = definitions({ scenario: 'same-name', phase: 'A' })[0],
@@ -359,6 +360,36 @@ test('HTML escaping contains tags and ANSI without executing them', () => {
   const escaped = escapeHtml(hostile);
   assert(!escaped.includes('<'));
   assert(!escaped.includes('\u001b'));
+});
+test('malformed Messages JSON remains an explicit harness protocol error', async () => {
+  const model = new Loopback('own-nonce');
+  await model.start();
+  try {
+    const response = await fetch(model.url + '/v1/messages', {
+      method: 'POST',
+      headers: { authorization: 'Bearer mcpclientcanary-synthetic-loopback-only' },
+      body: '{malformed',
+    });
+    assert.equal(response.status, 400);
+    assert.equal(model.error.code, 2);
+    assert(model.recorder.events.some((e) => e.event === 'model-error'));
+  } finally {
+    await model.close();
+  }
+});
+test('recorder append rejects a symlink created at the evidence file', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'canary-symlink-record-'));
+  try {
+    const foreign = join(dir, 'foreign');
+    await writeFile(foreign, 'untouched');
+    const file = join(dir, 'events');
+    await symlink(foreign, file);
+    assert.throws(() => new Recorder('server', file).add('own', {}));
+    const { readFile } = await import('node:fs/promises');
+    assert.equal(await readFile(foreign, 'utf8'), 'untouched');
+  } finally {
+    await rm(dir, { recursive: true });
+  }
 });
 test('empty report is explicit incomplete and script data cannot close the script', () => {
   const r = {

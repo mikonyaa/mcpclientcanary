@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MCPClientCanary · install and reproduce</title>
+<style>
+body{margin:0;padding:30px;background:#f4f4ef;color:#1c2d35;font:16px/1.6 'Avenir Next','Trebuchet MS',sans-serif}main{max-width:950px;margin:auto}h1{font-size:30px;line-height:1.2}h2{font-size:21px;margin-top:30px}a{color:inherit}pre{padding:20px;background:white;border:1px solid #d7ddd9;border-left:4px solid #e8c54e;font:13px/1.6 Menlo,Consolas,monospace;overflow:auto}a:focus-visible,pre:focus-visible{outline:3px solid #805e11;outline-offset:3px}.note{padding:15px;background:#fff6dc;border-left:3px solid #805e11}
+</style>
+<main>
+<a href="./index.html">← Recorded evidence report</a>
+<h1>Install and run your own measurement.</h1>
+<p>MCPClientCanary 0.1.0 measures the real Claude Code CLI with a synthetic stdio fixture and local Messages/SSE endpoint. Native support is verified for macOS arm64 and Claude Code 2.1.294 / 2.1.296. Use Node.js 22.16+ or 24 LTS.</p>
+<p><a href="https://github.com/mikonyaa/mcpclientcanary/releases">Download release assets and checksums</a> · <a href="https://github.com/mikonyaa/mcpclientcanary#readme">Source and full instructions</a> · <a href="./demo.html">Play the actual terminal recording</a></p>
+<h2>1. Install the verified release package</h2>
+<pre tabindex="0">mkdir canary-consumer
+cd canary-consumer
+npm init -y
+gh release download v0.1.0 --repo mikonyaa/mcpclientcanary --pattern '*.tgz'
+npm install --ignore-scripts ./mcpclientcanary-0.1.0.tgz
+./node_modules/.bin/mcpclientcanary --version</pre>
+<p>The package includes compiled code, its own fixture server, schemas and examples. Vendor executables are acquired separately; they are governed by Anthropic's terms.</p>
+<h2>2. Explicitly acquire the two official versions</h2>
+<pre tabindex="0">node node_modules/mcpclientcanary/examples/acquire-clients.mjs \
+  --cache ./canary-native-cache --manifest ./clients.local.json
+./node_modules/.bin/mcpclientcanary doctor --clients ./clients.local.json --json</pre>
+<p>The helper checks the official manifest and pinned SHA-256 values. It requires a new cache, never runs the vendor installer and never changes your current installation or account.</p>
+<h2>3. Run the native lifecycle</h2>
+<pre tabindex="0">./node_modules/.bin/mcpclientcanary run --clients ./clients.local.json \
+  --suite core --repeat 2 --out ./core-results</pre>
+<p>Open core-results/report.html locally. The JSON and JUnit outputs retain separate server, loaded reference, current model input and native resume evidence. Exit 1 means a measured client contract violation; it does not mean the harness failed.</p>
+<p class="note">This website displays a dated recorded measurement. It cannot run a native executable or check your current runtime in the browser. No model inference ran in the verified local mock mode.</p>
+</main>
+</html>
