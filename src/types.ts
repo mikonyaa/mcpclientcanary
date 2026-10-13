@@ -1,5 +1,5 @@
 import { z } from 'zod';
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 export const ADAPTER_VERSION = '1';
 export const PROTOCOL = '2025-11-25';
 export const SUPPORTED = ['2.1.294', '2.1.296'] as const;
@@ -101,8 +101,13 @@ export const caseSchema = z.strictObject({
   provenance: z.record(z.string(), z.unknown()),
 });
 export type CaseResult = z.infer<typeof caseSchema>;
+// Shape schema is accompanied by src/report/validate.ts semantic checks.
 export const reportSchema = z.strictObject({
-  schemaVersion: z.literal(1),
+  schemaVersion: z
+    .literal(1)
+    .describe(
+      'Report v1 shape; import also requires evidence and derived-outcome integrity validation',
+    ),
   runId: z.string().uuid(),
   timestamp: z.string(),
   toolVersion: z.string(),

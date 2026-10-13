@@ -1,6 +1,6 @@
 {
   "name": "mcpclientcanary",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reproduce native MCP client state regressions with evidence you can inspect.",
   "type": "module",
   "license": "MIT",
@@ -17,7 +17,8 @@
     "schemas",
     "README.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "docs"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

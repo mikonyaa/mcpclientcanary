@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command, CommanderError, InvalidArgumentError } from 'commander';
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { readFile, writeFile, mkdir, stat, mkdtemp } from 'node:fs/promises';
+import { resolve, dirname, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { release } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -23,6 +23,7 @@ import { verifyClient, officialHashes } from '../adapters/claude-code/index.js';
 import { runCase } from '../scenarios/state-machine.js';
 import { aggregateExit } from '../verdict/contracts.js';
 import { loadReport, writeReports, writeHtml } from '../report/index.js';
+import { assertFreshOutput } from '../report/transaction.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 async function clients(path: string): Promise<ClientConfig[]> {
   if ((await stat(path)).size > 65536) throw new CanaryError('Client manifest exceeds 64 KiB');
@@ -43,6 +44,16 @@ const bounded = (min: number, max: number) => (s: string) => {
 const plain = (s: string) => s.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 120);
 const print = (data: unknown, json: boolean, message: string) =>
   process.stdout.write(json ? JSON.stringify(data) + '\n' : message + '\n');
+async function withPublicationSignal(task: (signal: AbortSignal) => Promise<void>) {
+  const controller = new AbortController(),
+    abort = () => controller.abort();
+  process.once('SIGINT', abort);
+  try {
+    await task(controller.signal);
+  } finally {
+    process.removeListener('SIGINT', abort);
+  }
+}
 type Options = {
   clients: string;
   out: string;
@@ -63,15 +74,13 @@ async function execute(options: Options): Promise<void> {
     throw new CanaryError('Only suite core is supported');
   const scenarios = options.suite ? CORE : [scenarioSchema.parse(options.scenario ?? 'same-name')];
   const out = resolve(options.out);
-  await mkdir(out, { recursive: true });
-  try {
-    await stat(resolve(out, 'report.json'));
-    throw new CanaryError('Output report exists; choose a fresh directory');
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
-  }
+  await assertFreshOutput(out);
+  await mkdir(dirname(out), { recursive: true });
+  const diagnostics = await mkdtemp(join(dirname(out), `.${basename(out)}-diagnostics-`));
   const signal = new AbortController();
-  const abort = () => signal.abort();
+  const publication = new AbortController();
+  let publishing = false;
+  const abort = () => (publishing ? publication.abort() : signal.abort());
   process.once('SIGINT', abort);
   const deadline = setTimeout(abort, 15 * 60 * 1000);
   const cases: CaseResult[] = [];
@@ -81,14 +90,22 @@ async function execute(options: Options): Promise<void> {
         for (let repeat = 1; repeat <= options.repeat; repeat++) {
           if (signal.signal.aborted) break;
           process.stderr.write(
-            `${plain(client.label)} · ${scenario} · repeat ${repeat}/${options.repeat}\n`,
+            options.json
+              ? JSON.stringify({
+                  type: 'progress',
+                  client: client.label,
+                  scenario,
+                  repeat,
+                  totalRepeats: options.repeat,
+                }) + '\n'
+              : `${plain(client.label)} · ${scenario} · repeat ${repeat}/${options.repeat}\n`,
           );
           cases.push(
             await runCase(
               client,
               scenario,
               repeat,
-              resolve(out, 'runs'),
+              resolve(diagnostics, 'runs'),
               options.timeout * 1000,
               signal.signal,
               !!options.allowUnverified,
@@ -101,7 +118,6 @@ async function execute(options: Options): Promise<void> {
     }
   } finally {
     clearTimeout(deadline);
-    process.removeListener('SIGINT', abort);
   }
   let sourceCommit = 'uncommitted';
   try {
@@ -133,6 +149,7 @@ async function execute(options: Options): Promise<void> {
       node: process.version,
       networkSandbox: false,
       paidInference: false,
+      cancelled: signal.signal.aborted,
     },
     clients: list.map((c) => ({
       label: c.label,
@@ -154,13 +171,29 @@ async function execute(options: Options): Promise<void> {
       `mcpclientcanary run --clients ./clients.local.json ${options.suite ? '--suite core' : '--scenario ' + scenarios[0]} --repeat ${options.repeat} --timeout ${options.timeout} --out ./new-results`,
     ],
   };
-  await writeReports(report, out);
+  const diagnosticReport = resolve(diagnostics, 'capture-report.diagnostic.json');
+  try {
+    await writeFile(diagnosticReport, JSON.stringify(report, null, 2) + '\n', {
+      mode: 0o600,
+      flag: 'wx',
+    });
+    publishing = true;
+    await writeReports(report, out, { signal: publication.signal });
+  } catch (e) {
+    throw new CanaryError(
+      `${e instanceof CanaryError ? e.message : 'Report export I/O error'} Diagnostic evidence: ${diagnostics}`,
+      e instanceof CanaryError ? e.code : 2,
+    );
+  } finally {
+    process.removeListener('SIGINT', abort);
+  }
   process.exitCode = exitCode;
   print(
     {
       exitCode,
       report: resolve(out, 'report.json'),
       html: resolve(out, 'report.html'),
+      diagnostics,
       cases: cases.map((c) => ({
         client: c.client,
         scenario: c.scenario,
@@ -178,6 +211,7 @@ const program = new Command()
   .name('mcpclientcanary')
   .description('Reproduce native MCP client state regressions with evidence you can inspect.')
   .version(VERSION)
+  .configureOutput({ writeErr: () => {} })
   .exitOverride();
 program
   .command('doctor')
@@ -287,7 +321,7 @@ runOptions(
   if (options.recorded) {
     const r = await loadReport(resolve(root, 'examples/recorded-report.json'));
     r.recorded = true;
-    await writeReports(r, options.out);
+    await withPublicationSignal((signal) => writeReports(r, options.out, { signal }));
     print(
       {
         recorded: true,
@@ -313,7 +347,9 @@ program
   .option('--json', 'clean JSON summary')
   .option('--no-open', 'no automatic opening')
   .action(async (input, options) => {
-    await writeHtml(await loadReport(input), options.out);
+    await withPublicationSignal(async (signal) =>
+      writeHtml(await loadReport(input), options.out, { signal }),
+    );
     print({ html: resolve(options.out) }, !!options.json, 'Saved ' + resolve(options.out));
   });
 try {
@@ -326,12 +362,16 @@ try {
     process.exitCode = 0;
   } else {
     process.exitCode = e instanceof CanaryError ? e.code : 2;
-    process.stderr.write(
-      (e instanceof CanaryError
+    const message =
+      e instanceof CanaryError
         ? e.message
         : e instanceof CommanderError
           ? e.message
-          : 'Invalid input, file or report schema') + '\n',
+          : 'Invalid input, file or report schema';
+    process.stderr.write(
+      process.argv.includes('--json')
+        ? JSON.stringify({ type: 'error', exitCode: process.exitCode, error: { message } }) + '\n'
+        : message + '\n',
     );
   }
 }
