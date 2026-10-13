@@ -1,5 +1,6 @@
 import { type Report } from '../types.js';
 import { validateReport } from './validate.js';
+import { createHash } from 'node:crypto';
 export const escapeHtml = (s: unknown) =>
   String(s)
     .replaceAll('&', '&amp;')
@@ -99,6 +100,18 @@ function clientApp() {
   }
   [scenario, repeat, filter].forEach((el) => el.addEventListener('change', render));
   render();
+  document.querySelector('#export-json')!.addEventListener('click', () => {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' }),
+    );
+    link.href = url;
+    link.download = `report-${report.runId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   document.querySelector('#copy-command')!.addEventListener('click', () => {
     const text = report.reproduceCommands[0] ?? '';
     const fallback = () => {
@@ -126,12 +139,18 @@ const css = `
 `;
 export function htmlReport(input: Report): string {
   const r = validateReport(input);
-  const incomplete = r.cases.some((c) => c.harnessStatus !== 'complete') || !r.cases.length,
+  const incomplete =
+      [2, 3, 130].includes(r.exitCode) ||
+      r.cases.some((c) => c.harnessStatus !== 'complete') ||
+      !r.cases.length,
     failed = r.cases.filter((c) => c.clientContractStatus === 'observed-fail').length,
     measured = r.cases.filter((c) => c.harnessStatus === 'complete').length;
   const safeData = JSON.stringify(r)
     .replaceAll('<', '\\u003c')
     .replaceAll('\u2028', '\\u2028')
     .replaceAll('\u2029', '\\u2029');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>MCPClientCanary · native state evidence</title><style>${css}</style></head><body><header class="masthead"><div class="brand"><i>m/c</i>MCPClientCanary</div><small>${r.recorded ? 'RECORDED MEASUREMENT' : 'LOCAL NATIVE RUN'} · ${escapeHtml(r.timestamp.slice(0, 10))} UTC · v${escapeHtml(r.toolVersion)}</small></header><main><span class="eyebrow">Native client regression harness</span><h1>Follow the definition.</h1><p class="lede">Compare what the MCP server sent, what native ToolSearch loaded, and what Claude Code sent to the model endpoint. Every conclusion has its own evidence.</p><section class="coverage" aria-label="Run coverage"><div><strong>${incomplete ? 'Incomplete native coverage' : failed ? 'Measured client contract violations' : 'Selected contracts observed to pass'}</strong><p>Harness ${incomplete ? 'incomplete' : 'complete'} · MCP ${escapeHtml(r.negotiatedProtocol)} · stdio · synthetic loopback</p><p class="mono">${escapeHtml(r.environment.os)} / ${escapeHtml(r.environment.arch)} · ${escapeHtml(r.environment.osVersion)} · exit ${r.exitCode}</p></div><div class="summary-data"><div><b>${new Set(r.cases.map((c) => c.nativeVersion)).size}</b><span>native versions</span></div><div><b>${measured}/${r.cases.length}</b><span>cases measured</span></div><div><b>${failed}</b><span>client failures</span></div></div></section>${r.recorded ? '<p class="limit"><b>Recorded report.</b> This page displays an earlier synthetic measurement. It does not test your current native runtime. Use the CLI to run a new measurement.</p>' : ''}<div class="toolbar"><label>Scenario<select id="scenario" aria-label="Scenario"></select></label><label>Independent run<select id="repeat" aria-label="Independent run"></select></label><label>Client outcome<select id="status-filter" aria-label="Client outcome"><option value="all">All outcomes</option><option value="observed-fail">Observed failure</option><option value="observed-pass">Observed pass</option><option value="unknown">Unknown / unmeasured</option></select></label><button id="copy-command">Copy run command</button></div><div id="comparison" class="comparison" aria-live="polite"></div><section class="reproduce"><h2>Run it again</h2><pre tabindex="0">${escapeHtml(r.reproduceCommands.join('\n'))}</pre><p id="copy-message" role="status">Commands use your own local executable manifest.</p><textarea id="copy-fallback" aria-label="Command to copy" hidden readonly></textarea><p>Same-name updates and newly added tools are separate cases. A stale native definition is a client lifecycle finding; this report does not certify MCP conformity.</p></section><div class="limit"><b>Observation boundary.</b> No model inference ran. Tool references resolve against unique definitions in the captured request. Historical A is preserved separately and does not by itself imply stale state. Reconnect is unsupported by this adapter.</div><footer>Source ${escapeHtml(r.sourceCommit)} · run ${escapeHtml(r.runId)}<br>Public evidence contains synthetic definitions, tool references and minimal process provenance. Native system prompts, credentials, headers and session files are excluded.</footer></main><script id="report-data" type="application/json">${safeData}</script><script>(${clientApp.toString()})();</script></body></html>`;
+  const script = `(${clientApp.toString()})();`;
+  const sha = (text: string) => createHash('sha256').update(text).digest('base64');
+  const policy = `default-src 'none'; script-src 'sha256-${sha(script)}'; style-src 'sha256-${sha(css)}'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${escapeHtml(policy)}"><meta name="color-scheme" content="light"><title>MCPClientCanary · native state evidence</title><style>${css}</style></head><body><header class="masthead"><div class="brand"><i>m/c</i>MCPClientCanary</div><small>${r.recorded ? 'RECORDED MEASUREMENT' : 'LOCAL NATIVE RUN'} · ${escapeHtml(r.timestamp.slice(0, 10))} UTC · v${escapeHtml(r.toolVersion)}</small></header><main><span class="eyebrow">Native client regression harness</span><h1>Follow the definition.</h1><p class="lede">Compare what the MCP server sent, what native ToolSearch loaded, and what Claude Code sent to the model endpoint. Every conclusion has its own evidence.</p><section class="coverage" aria-label="Run coverage"><div><strong>${incomplete ? 'Incomplete native coverage' : failed ? 'Measured client contract violations' : 'Selected contracts observed to pass'}</strong><p>Harness ${incomplete ? 'incomplete' : 'complete'} · MCP ${escapeHtml(r.negotiatedProtocol)} · stdio · synthetic loopback</p><p class="mono">${escapeHtml(r.environment.os)} / ${escapeHtml(r.environment.arch)} · ${escapeHtml(r.environment.osVersion)} · exit ${r.exitCode}</p></div><div class="summary-data"><div><b>${new Set(r.cases.map((c) => c.nativeVersion)).size}</b><span>native versions</span></div><div><b>${measured}/${r.cases.length}</b><span>cases measured</span></div><div><b>${failed}</b><span>client failures</span></div></div></section>${r.recorded ? '<p class="limit"><b>Recorded report.</b> This page displays an earlier synthetic measurement. It does not test your current native runtime. Use the CLI to run a new measurement.</p>' : ''}<div class="toolbar"><label>Scenario<select id="scenario" aria-label="Scenario"></select></label><label>Independent run<select id="repeat" aria-label="Independent run"></select></label><label>Client outcome<select id="status-filter" aria-label="Client outcome"><option value="all">All outcomes</option><option value="observed-fail">Observed failure</option><option value="observed-pass">Observed pass</option><option value="unknown">Unknown / unmeasured</option></select></label><button id="copy-command">Copy run command</button><button id="export-json">Export report JSON</button></div><div id="comparison" class="comparison" aria-live="polite"></div><section class="reproduce"><h2>Run it again</h2><pre tabindex="0">${escapeHtml(r.reproduceCommands.join('\n'))}</pre><p id="copy-message" role="status">Commands use your own local executable manifest.</p><textarea id="copy-fallback" aria-label="Command to copy" hidden readonly></textarea><p>Same-name updates and newly added tools are separate cases. A stale native definition is a client lifecycle finding; this report does not certify MCP conformity.</p></section><div class="limit"><b>Observation boundary.</b> No model inference ran. Tool references resolve against unique definitions in the captured request. Historical A is preserved separately and does not by itself imply stale state. Reconnect is unsupported by this adapter.</div><footer>Source ${escapeHtml(r.sourceCommit)} · run ${escapeHtml(r.runId)}<br>Public evidence contains synthetic definitions, tool references and minimal process provenance. Native system prompts, credentials, headers and session files are excluded.</footer></main><script id="report-data" type="application/json">${safeData}</script><script>${script}</script></body></html>`;
 }

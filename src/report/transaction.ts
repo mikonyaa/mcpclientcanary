@@ -22,7 +22,11 @@ function conflict(path: string): CanaryError {
   );
 }
 export async function assertFreshOutput(path: string): Promise<void> {
-  if (await identity(resolve(path))) throw conflict(resolve(path));
+  try {
+    if (await identity(resolve(path))) throw conflict(resolve(path));
+  } catch (e) {
+    throw publicationError(e, resolve(path));
+  }
 }
 async function removeOwnedFile(path: string, owned: Stats): Promise<void> {
   const current = await identity(path);

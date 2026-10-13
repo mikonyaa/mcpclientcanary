@@ -4,7 +4,8 @@
   "properties": {
     "schemaVersion": {
       "type": "number",
-      "const": 1
+      "const": 1,
+      "description": "Report v1 shape; import also requires evidence and derived-outcome integrity validation"
     },
     "runId": {
       "type": "string",

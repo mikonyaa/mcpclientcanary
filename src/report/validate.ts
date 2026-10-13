@@ -248,6 +248,21 @@ function validateCase(c: CaseResult, path: string): void {
   const requests = find('model', 'request');
   const searches = find('model', 'search-result-observed');
   const issues = find('model', 'search-issued');
+  for (const e of [
+    ...requests,
+    ...searches,
+    ...issues,
+    ...find('native', 'loaded-result'),
+    ...find('native', 'turn-complete'),
+  ]) {
+    requireIntegrity(
+      phases.includes(e.data.stage as (typeof phases)[number]) &&
+        e.phase === (e.data.stage === 'initial' ? initialPhase : nextPhase) &&
+        e.generation === (e.data.stage === 'initial' ? 1 : 2),
+      path + '.evidence',
+      'observation phase/generation differs from lifecycle stage',
+    );
+  }
   unique(
     issues.map((e) => String(e.data.toolUseId)),
     path + '.search-issued',

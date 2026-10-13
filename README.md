@@ -2,6 +2,8 @@
 
 Reproduce native MCP client state regressions with evidence you can inspect.
 
+Local **0.1.1 candidate**: report imports and exports now validate evidence coherence, bundles require a fresh directory and publish atomically, and JUnit uses XML 1.0 encoding. See [report compatibility and migration](docs/report-integrity.md) and the [pinned native candidate runbook](docs/native-candidate-runbook.md). The published v0.1.0 installation below remains historical; the local candidate is installed from its own `.tgz`.
+
 A local CLI for one specific question: when a deferred MCP tool changes its description or input schema **without changing its name**, what does the real Claude Code CLI send to its next model request, including after resuming the same conversation?
 
 MCPClientCanary launches two pinned, unmodified native executables against its own harmless stdio server and a loopback Messages/SSE endpoint. The endpoint drives genuine native ToolSearch calls. There is no paid inference in this verified synthetic mode.
