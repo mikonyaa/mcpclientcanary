@@ -1,8 +1,8 @@
-import { writeFile, readFile, stat, mkdir } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
 import { type Report, MAX_BYTES, CanaryError } from '../types.js';
 import { validateReport } from './validate.js';
 import { htmlReport, escapeHtml } from './html.js';
+import { publishBundle, publishHtml, type PublicationOptions } from './transaction.js';
 export async function loadReport(path: string): Promise<Report> {
   if ((await stat(path)).size > MAX_BYTES) throw new CanaryError('Report exceeds 16 MiB');
   return validateReport(JSON.parse(await readFile(path, 'utf8')));
@@ -35,17 +35,26 @@ export function junitReport(r: Report): string {
     .join('');
   return `<?xml version="1.0" encoding="UTF-8"?><testsuite name="MCPClientCanary native contracts" tests="${r.cases.length}" failures="${r.cases.filter((c) => c.harnessStatus === 'complete' && c.clientContractStatus === 'observed-fail').length}" errors="${r.cases.filter((c) => c.harnessStatus === 'error').length}" skipped="${r.cases.filter((c) => ['incomplete', 'cancelled'].includes(c.harnessStatus)).length}">${tests}</testsuite>\n`;
 }
-export async function writeReports(report: Report, out: string): Promise<void> {
+export async function writeReports(
+  report: Report,
+  out: string,
+  options: PublicationOptions = {},
+): Promise<void> {
   const r = validateReport(report);
-  await mkdir(out, { recursive: true });
-  for (const [name, content] of [
-    ['report.json', JSON.stringify(r, null, 2) + '\n'],
-    ['report.html', htmlReport(r)],
-    ['junit.xml', junitReport(r)],
-  ])
-    await writeFile(resolve(out, name!), content!, { mode: 0o600, flag: 'wx' });
+  await publishBundle(
+    out,
+    [
+      ['report.json', JSON.stringify(r, null, 2) + '\n'],
+      ['report.html', htmlReport(r)],
+      ['junit.xml', junitReport(r)],
+    ],
+    options,
+  );
 }
-export async function writeHtml(report: Report, path: string): Promise<void> {
-  await mkdir(dirname(resolve(path)), { recursive: true });
-  await writeFile(path, htmlReport(report), { flag: 'wx' });
+export async function writeHtml(
+  report: Report,
+  path: string,
+  options: PublicationOptions = {},
+): Promise<void> {
+  await publishHtml(path, htmlReport(report), options);
 }
