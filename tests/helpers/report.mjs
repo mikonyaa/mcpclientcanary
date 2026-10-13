@@ -15,7 +15,7 @@ export async function singleCase(scenario = 'same-name') {
 }
 
 // Exercise the real early platform gate without launching any native executable.
-export async function unsupportedReport(parent) {
+export async function unsupportedReport(parent, scenario = 'same-name', repeat = 1) {
   const r = await original();
   const c = await runCase(
     {
@@ -26,8 +26,8 @@ export async function unsupportedReport(parent) {
       os: 'unsupported-test-platform',
       arch: 'arm64',
     },
-    'same-name',
-    1,
+    scenario,
+    repeat,
     parent,
     5000,
   );

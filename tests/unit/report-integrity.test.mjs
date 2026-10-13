@@ -60,6 +60,10 @@ const mutations = {
   },
   'invalid observation window': (r) => (r.cases[0].window.actualNotificationWaitMs = 0),
   'wrong fixture hash': (r) => (r.cases[0].fixtureHash = '0'.repeat(64)),
+  'wrong lifecycle phase': (r) => {
+    for (const e of r.cases[0].evidence)
+      if (e.producer === 'model' && e.data.stage === 'initial') e.phase = 'B';
+  },
 };
 
 test('original 24 cases reopen without changing evidence or twelve observed failures', async () => {
