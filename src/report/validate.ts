@@ -81,9 +81,7 @@ export function validateReport(input: unknown): Report {
     }
   });
   const expectedExit =
-    r.environment.cancelled === true && !r.recorded
-      ? 130
-      : aggregateExit(r.cases.map((c) => c.exitCode));
+    r.environment.cancelled === true ? 130 : aggregateExit(r.cases.map((c) => c.exitCode));
   requireIntegrity(r.exitCode === expectedExit, 'exitCode', 'does not match aggregate outcome');
   return r;
 }
@@ -104,6 +102,13 @@ function validateCase(c: CaseResult, path: string): void {
   const lookup = new Map(events.map((e) => [e.ref, e]));
   const find = (producer: Evidence['producer'], event: string) =>
     events.filter((e) => e.producer === producer && e.event === event);
+  for (const producer of ['harness', 'model', 'native'] as const) {
+    requireIntegrity(
+      new Set(events.filter((e) => e.producer === producer).map((e) => e.instance)).size <= 1,
+      path + '.evidence',
+      'adapter v1 requires one recorder instance per ' + producer + ' stream',
+    );
+  }
   function refs(values: string[], at: string) {
     unique(values, at);
     for (const ref of values) requireIntegrity(lookup.has(ref), at, 'dangling evidence reference');
@@ -203,6 +208,14 @@ function validateCase(c: CaseResult, path: string): void {
     checkpoints.map((e) => String(e.data.stage)),
     path + '.checkpoints',
   );
+  unique(
+    checkpoints.map((e) => String(e.data.serverCheckpointRef)),
+    path + '.checkpoints',
+  );
+  unique(
+    checkpoints.map((e) => String(e.data.barrierToken)),
+    path + '.checkpoints',
+  );
   for (const e of checkpoints) {
     const ack = lookup.get(String(e.data.serverCheckpointRef));
     requireIntegrity(
@@ -217,6 +230,31 @@ function validateCase(c: CaseResult, path: string): void {
       path + '.checkpoints',
       'unknown checkpoint stage',
     );
+    const initial = e.data.stage === 'initial',
+      resumed = e.data.stage === 'resume';
+    const start = starts[resumed ? 1 : 0];
+    const turn = find('harness', 'user-turn').find((q) => q.data.stage === e.data.stage);
+    requireIntegrity(
+      ack &&
+        start &&
+        ack.instance === start.instance &&
+        ack.phase === (initial ? initialPhase : nextPhase) &&
+        ack.generation === (initial ? 1 : 2) &&
+        turn &&
+        turn.seq < e.seq,
+      path + '.checkpoints',
+      'checkpoint does not bound the corresponding turn/server generation',
+    );
+    if (!initial && !resumed) {
+      const applied = server.find(
+        (q) => q.event === 'phase-applied' && q.instance === start.instance,
+      );
+      requireIntegrity(
+        applied && applied.seq < ack.seq,
+        path + '.checkpoints',
+        'notification checkpoint precedes its live transition',
+      );
+    }
   }
   for (const e of find('server', 'notification-complete')) {
     const applied = lookup.get(String(e.data.transitionRef));
@@ -344,7 +382,16 @@ function validateCase(c: CaseResult, path: string): void {
     const turn = turns.find(
       (e) => e.data.stage === name && e.data.isError === false && e.data.subtype === 'success',
     );
-    const init = turn ? native.findLast((e) => e.seq < turn.seq) : undefined;
+    const init = turn
+      ? native.findLast(
+          (e) => e.instance === turn.instance && e.pid === turn.pid && e.seq < turn.seq,
+        )
+      : undefined;
+    requireIntegrity(
+      !turn || init || c.harnessStatus !== 'complete',
+      path + '.continuity',
+      'successful native turn has no matching process init',
+    );
     if (turn && init)
       requireIntegrity(
         turn.data.sessionId === init.data.sessionId,
@@ -355,6 +402,13 @@ function validateCase(c: CaseResult, path: string): void {
   }
   const initialSessionId = session('initial'),
     resumedSessionId = session('resume');
+  const notificationSessionId = session('notification');
+  if (notificationSessionId)
+    requireIntegrity(
+      notificationSessionId === initialSessionId,
+      path + '.continuity',
+      'notification turn changed the original native session',
+    );
   const resumeRequest = requests.findLast((e) => e.data.stage === 'resume');
   const priorNoncePresent = resumeRequest?.data.noncePresent ?? false;
   const resumeTurn = find('harness', 'user-turn').find((e) => e.data.stage === 'resume');
@@ -409,6 +463,19 @@ function validateCase(c: CaseResult, path: string): void {
   const windows = find('harness', 'notification-window-complete');
   requireIntegrity(windows.length <= 1, path + '.window', 'duplicate observation window');
   const window = windows[0];
+  const downstream = events.some(
+    (e) =>
+      (e.producer === 'harness' &&
+        ((e.event === 'user-turn' && ['notification', 'resume'].includes(String(e.data.stage))) ||
+          e.event === 'save-barrier')) ||
+      ((e.producer === 'model' || e.producer === 'native') &&
+        ['notification', 'resume'].includes(String(e.data.stage))),
+  );
+  requireIntegrity(
+    !downstream || window,
+    path + '.window',
+    'downstream observations require a completed bounded window',
+  );
   requireIntegrity(
     c.window.predeclaredObservationMs === WINDOW_MS &&
       typeof c.window.totalCaseMs === 'number' &&
@@ -497,7 +564,8 @@ function validateCase(c: CaseResult, path: string): void {
     );
   }
   expectedStages.push(resolutionStage('initial-current', resolutions.initial!));
-  const trigger = find('server', 'notification-complete')[0];
+  // A finally-collected late send is diagnostic evidence, not an in-window trigger.
+  const trigger = window ? lookup.get(String(window.data.notificationRef)) : undefined;
   add(
     'notification-trigger',
     trigger ? 'observed-pass' : 'not-reached',

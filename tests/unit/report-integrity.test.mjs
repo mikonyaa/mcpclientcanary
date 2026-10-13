@@ -64,6 +64,43 @@ const mutations = {
     for (const e of r.cases[0].evidence)
       if (e.producer === 'model' && e.data.stage === 'initial') e.phase = 'B';
   },
+  'missing window with downstream observations': (r) => {
+    r.cases[0].evidence.find((e) => e.event === 'notification-window-complete').event =
+      'removed-window';
+    r.cases[0].window.actualNotificationWaitMs = 0;
+  },
+  'reused checkpoint acknowledgement': (r) => {
+    const points = r.cases[0].evidence.filter((e) => e.event === 'observation-checkpoint');
+    for (const e of points.slice(1)) {
+      e.data.serverCheckpointRef = points[0].data.serverCheckpointRef;
+      e.data.barrierToken = points[0].data.barrierToken;
+      e.digest = digest(e.data);
+    }
+  },
+  'swapped checkpoint stages': (r) => {
+    const points = r.cases[0].evidence.filter((e) => e.event === 'observation-checkpoint');
+    const initial = structuredClone(points[0].data);
+    for (const key of ['serverCheckpointRef', 'barrierToken']) {
+      points[0].data[key] = points[2].data[key];
+      points[2].data[key] = initial[key];
+    }
+    for (const e of [points[0], points[2]]) e.digest = digest(e.data);
+  },
+  'notification session mismatch': (r) => {
+    const e = r.cases[0].evidence.find(
+      (e) =>
+        e.producer === 'native' && e.event === 'turn-complete' && e.data.stage === 'notification',
+    );
+    e.data.sessionId = '00000000-0000-4000-8000-000000000000';
+    e.digest = digest(e.data);
+  },
+  'notification process mismatch': (r) => {
+    const e = r.cases[0].evidence.find(
+      (e) =>
+        e.producer === 'native' && e.event === 'turn-complete' && e.data.stage === 'notification',
+    );
+    e.pid = 123456789;
+  },
 };
 
 test('original 24 cases reopen without changing evidence or twelve observed failures', async () => {

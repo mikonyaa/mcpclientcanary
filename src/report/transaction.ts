@@ -100,12 +100,20 @@ export async function publishBundle(
     checkAbort(options.signal);
   } catch (e) {
     try {
-      if (committed && stagedIdentity) await removeOwnedDirectory(out, stagedIdentity, files);
-      else if (reserved) await removeOwnedDirectory(out, reserved, []);
+      if (committed && stagedIdentity && staged) {
+        const current = await identity(out);
+        if (current && identityMatches(current, stagedIdentity)) {
+          if (await identity(staged)) throw conflict(staged);
+          // Withdraw the complete directory before deletion. Even failed cleanup
+          // cannot expose an incomplete bundle at the ready path.
+          await fs.rename(out, staged);
+        }
+        committed = false;
+      } else if (reserved) await removeOwnedDirectory(out, reserved, []);
       if (staged && stagedIdentity) await removeOwnedDirectory(staged, stagedIdentity, files);
     } catch (cleanup) {
       throw new CanaryError(
-        `Report publication failed at ${out}; owned staging cleanup failed (${(cleanup as NodeJS.ErrnoException).code ?? 'I/O error'}). Diagnostic evidence was preserved.`,
+        `Report publication failed at ${out}; owned staging cleanup failed (${(cleanup as NodeJS.ErrnoException).code ?? 'I/O error'}). ${committed ? 'Complete bundle preserved at ' + out : 'Private staging may remain at ' + staged}. Diagnostic evidence was preserved.`,
         e instanceof CanaryError ? e.code : 2,
       );
     }
