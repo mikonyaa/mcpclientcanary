@@ -18,6 +18,8 @@ All three files are staged and flushed at mode 0600 in an owned sibling director
 
 Native diagnostics use a separate private sibling `.OUTPUT-diagnostics-…` directory. `capture-report.diagnostic.json` is saved before validation/publication. It can contain rejected or incomplete data and is never presented as a successfully published bundle. Success JSON includes `diagnostics`; export errors identify preserved evidence. Owner/control files are local diagnostic material, not release assets.
 
+Cancellation after the commit atomically withdraws the whole owned directory before file cleanup. If unlink cleanup then fails, only private staging can be partial. If the withdrawal rename itself fails, the complete bundle is retained and the error explicitly identifies that state; ready files are never deleted individually. A late notification collected after the trigger deadline remains diagnostic evidence and does not promote an incomplete trigger to measured pass.
+
 HTML-only export commits its completed staged file with an exclusive hard link and never truncates an existing path. Under `--json`, stderr is JSON Lines progress/error records and stdout is one success object, or empty on error. SIGINT during capture exports an explicit cancelled report; SIGINT during publication rolls back and returns 130.
 
 Atomic visibility differs from power-loss durability. Files are flushed, but no durable multi-directory journal is claimed. SIGKILL/power loss can leave owned staging or an empty reservation; it does not create mixed old/new report files. Deliberate hostile path replacement by another process using the same OS account is outside this isolation boundary. Use a private owned parent directory.

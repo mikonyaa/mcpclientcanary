@@ -95,6 +95,46 @@ test('abort during commit rolls back the whole published bundle', () =>
     );
     assert.deepEqual(await fs.readdir(dir), []);
   }));
+test('rollback unlink failure cannot leave partial files at the ready path', () =>
+  inTemp(async (dir) => {
+    const controller = new AbortController(),
+      rename = fs.rename,
+      unlink = fs.unlink,
+      out = join(dir, 'out');
+    mock.method(fs, 'rename', async (...args) => {
+      await rename(...args);
+      controller.abort();
+    });
+    let unlinks = 0;
+    mock.method(fs, 'unlink', async (...args) => {
+      if (++unlinks === 2)
+        throw Object.assign(new Error('rollback unlink failed'), { code: 'EIO' });
+      return unlink(...args);
+    });
+    await assert.rejects(
+      writeReports(await singleCase(), out, { signal: controller.signal }),
+      (e) => e.code === 130,
+    );
+    await assert.rejects(fs.access(out));
+  }));
+test('failed withdrawal preserves a complete bundle rather than deleting ready files', () =>
+  inTemp(async (dir) => {
+    const controller = new AbortController(),
+      rename = fs.rename,
+      out = join(dir, 'out');
+    let calls = 0;
+    mock.method(fs, 'rename', async (...args) => {
+      if (++calls === 2) throw Object.assign(new Error('withdrawal failed'), { code: 'EIO' });
+      await rename(...args);
+      controller.abort();
+    });
+    await assert.rejects(
+      writeReports(await singleCase(), out, { signal: controller.signal }),
+      (e) => e.code === 130 && /Complete bundle preserved/.test(e.message),
+    );
+    assert.deepEqual((await fs.readdir(out)).sort(), [...names].sort());
+    JSON.parse(await fs.readFile(join(out, 'report.json'), 'utf8'));
+  }));
 test('foreign directory replacement at commit survives rollback', () =>
   inTemp(async (dir) => {
     const out = join(dir, 'out'),
