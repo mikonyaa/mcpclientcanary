@@ -1,7 +1,8 @@
 import { readFile, stat } from 'node:fs/promises';
 import { type Report, MAX_BYTES, CanaryError } from '../types.js';
 import { validateReport } from './validate.js';
-import { htmlReport, escapeHtml } from './html.js';
+import { htmlReport } from './html.js';
+import { escapeXml } from './xml.js';
 import { publishBundle, publishHtml, type PublicationOptions } from './transaction.js';
 export async function loadReport(path: string): Promise<Report> {
   if ((await stat(path)).size > MAX_BYTES) throw new CanaryError('Report exceeds 16 MiB');
@@ -9,7 +10,7 @@ export async function loadReport(path: string): Promise<Report> {
 }
 export function junitReport(r: Report): string {
   r = validateReport(r);
-  const esc = escapeHtml;
+  const esc = escapeXml;
   const tests = r.cases
     .map((c) => {
       const body =
