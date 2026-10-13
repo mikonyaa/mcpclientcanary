@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { reportSchema, CORE } from '../dist/types.js';
@@ -16,7 +16,7 @@ const cliIndex = options.indexOf('--cli'),
 const outIndex = options.indexOf('--out'),
   out =
     outIndex >= 0 ? resolve(options[outIndex + 1]) : resolve('test-results/native-' + randomUUID());
-await mkdir(out, { recursive: true });
+await mkdir(dirname(out), { recursive: true });
 // Controlled canaries are installed in this test process only, after Node starts.
 // Any inheritance into the native CLI would break auth or fixture startup.
 Object.assign(process.env, {
@@ -27,13 +27,13 @@ Object.assign(process.env, {
   CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: '1',
   ENABLE_TOOL_SEARCH: 'false',
 });
-const preload = resolve(out, 'controlled-preload.cjs');
+const preload = resolve(dirname(out), '.controlled-preload-' + randomUUID() + '.cjs');
 await writeFile(
   preload,
   "process.env.NODE_OPTIONS='--require=/CANARY_PARENT_PRELOAD_MUST_NOT_PASS';\n",
-  { mode: 0o600 },
+  { mode: 0o600, flag: 'wx' },
 );
-const harnessEnv = { ...process.env, NODE_OPTIONS: '--require=' + preload };
+const harnessEnv = { ...process.env, NODE_OPTIONS: '--require=' + JSON.stringify(preload) };
 const result = await new Promise((resolveResult, reject) => {
   const child = spawn(
     process.execPath,
